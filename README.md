@@ -1,6 +1,6 @@
 <h1>learning_asyncio</h1>
 
-![program-demo](gifs/program_demo.gif)
+![](https://github.com/sunCelery/learning_asyncio/blob/main/gifs/program-demo.gif)
 
 <h2>Table of content</h2>
 
