@@ -16,21 +16,21 @@ For now:
 - comparing to sync_weather_request which block either UI buttons and UI refreshing
 
 ## Install ##
-**To install the app run one of these blocks in terminal**
+**To install the app run one of these blocks in linux terminal**
 
-- if poetry and linux:
+- if poetry:
 ```
 git clone https://github.com/sunCelery/learning_asyncio && \
 cd learning_asyncio && \
 poetry install
 ```
 
-- elif pip and linux:
+- elif pip:
 ```
 git clone https://github.com/sunCelery/learning_asyncio && \
 cd learning_asyncio && \
 python -m venv .venv && source .venv/bin/activate && \
-python -m pip install --upgrade pip && pip install -r requirements.txt
+python -m pip install --upgrade pip && pip install .
 ```
 
 ## Usage ##
@@ -38,13 +38,13 @@ python -m pip install --upgrade pip && pip install -r requirements.txt
 
 - if poetry:
 ```
-poetry run main.py
+poetry run python main.py
 ```
 - else:
 ```
 python main.py
-```k'
 ```
+
 
 ## To Do ##
 
