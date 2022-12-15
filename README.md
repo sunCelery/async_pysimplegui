@@ -1,6 +1,6 @@
-<h1>learning_asyncio</h1>
+<h1>async_pysimplegui</h1>
 
-![](https://github.com/sunCelery/learning_asyncio/blob/main/gifs/program-demo.gif)
+![gif-program-demo](https://github.com/sunCelery/async_pysimplegui/blob/main/gifs/program-demo.gif)
 
 <h2>Table of content</h2>
 
@@ -10,27 +10,24 @@
 - [To Do](#to-do)
 
 ## Description ##
-It's totaly learning project, to learn asyncio in Python
-
-
-For now:
-- the program is not completely asyc, async_weather_request block UI buttons, but not block UI refreshing
-- comparing to sync_weather_request which block either UI buttons and UI refreshing
+This program allows You to do asynchronous requests to the server (which do not block UI),
+and also demonstrates that the requests are asynchronous for sure, by comparing with regular synchronous requests.
+(which block UI (clock updating) and is fulfilling much slower))
 
 ## Install ##
 **To install the app run one of these blocks in linux terminal**
 
 - if poetry:
 ```
-git clone https://github.com/sunCelery/learning_asyncio && \
-cd learning_asyncio && \
+git clone https://github.com/sunCelery/async_pysimplegui && \
+cd async_pysimplegui && \
 poetry install
 ```
 
 - elif pip:
 ```
-git clone https://github.com/sunCelery/learning_asyncio && \
-cd learning_asyncio && \
+git clone https://github.com/sunCelery/async_pysimplegui && \
+cd async_pysimplegui && \
 python -m venv .venv && source .venv/bin/activate && \
 python -m pip install --upgrade pip && pip install .
 ```
@@ -50,5 +47,6 @@ python main.py
 
 ## To Do ##
 
-- make aihttp request which not block UI
-- clean code style, delete global variables (it's totaly draft file for now) (afaik asyncio.gather must be used to retrieve that async function returns)
+- [done] make aihttp request which not block UI
+- [done] clean code style, delete global variables
+- implement variant of function which uses thread (window.perform_long_operation) method
