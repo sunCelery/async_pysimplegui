@@ -1,164 +1,161 @@
 import sys
 import asyncio
+import aiohttp
 import requests
 import PySimpleGUI as sg
 from datetime import datetime
-from aiohttp import ClientSession
 
 
-def make_window(theme=None):
+def make_window(toggle_button_off):
     layout = [
-        [sg.Text("UI working in Async mode",)],
+        [sg.Text('Show Clock',),
+            sg.Push(),
+            sg.Button(
+                image_data=toggle_button_off,
+                key='toggle_show_time',
+                button_color=(sg.theme_background_color(),
+                            sg.theme_background_color()),
+                border_width=0,
+                metadata=False),],
 
-        [sg.Button("Turn-ON time",
-            key="turn_ON_time_button_pressed",
-            size=(13, 1),
-            )],
-        [sg.Button("Turn-OFF time",
-            key="turn_OFF_time_button_pressed",
-            size=(13, 1),
-            )],
-        [sg.Text("output: ",
-            key="output",
-            size=(30, 1),
-            )],
+        [sg.Text("",
+            key="clock_output",
+            size=(30, 1),)],
 
         [sg.Button("ASYNC Retrieve weather",
             key="async_retrieve_weather_button_pressed",
-            size=(30, 1),
-            )],
-        [sg.Text("async weather: ",
+            size=(30, 1),)],
+
+        [sg.Text("",
             key="async_weather_output",
-            size=(30, 13),
-            font=("Courier New", 10),
-            )],
+            size=(30, 12),
+            font=("Courier New", 10),)],
 
-        [sg.Button("SYNC Retrieve weather",
-            key="sync_retrieve_weather_button_pressed",
-            size=(30, 1),
-            )],
-        [sg.Text("sync weather: ",
-            key="sync_weather_output",
-            size=(30, 13),
-            font=("Courier New", 10),
-            )],
+        [sg.Button("Retrieve weather",
+            key="retrieve_weather_button_pressed",
+            size=(30, 1),)],
+        [sg.Text("",
+            key="weather_output",
+            size=(30, 12),
+            font=("Courier New", 10),)],
 
-        [sg.Button("clear Output",
+        [sg.Button("clear layout",
             key="clear_output",
-            size=(20, 1),
-            )],
-
-    ]
+            size=(20, 1),)],
+        ]
 
     window = sg.Window('Async program', layout, finalize=True)
-
     return window
 
 
-def get_weather(Window, url, city):
-    global weather_string
-
+def get_weather(window, url, city) -> str:
+    weather_string = ""
     with requests.Session() as session:
         params = {'q': city, 'APPID': '2a4ff86f9aaa70041ec8e82db64abf56'}
         response = session.get(url, params=params)
         weather_json = response.json()
         weather_string += f'{city: <15}: {weather_json["weather"][0]["main"]}\n'
+        return weather_string
 
 
-async def async_get_weather(window, url, city):
-    global weather_string
-
-    async with ClientSession() as session:
-        params = {'q': city, 'APPID': '2a4ff86f9aaa70041ec8e82db64abf56'}
+async def async_get_weather(window, url, city) -> str:
+    weather_string = ""
+    async with aiohttp.ClientSession() as session:
+        params = {"q": city, "APPID": "2a4ff86f9aaa70041ec8e82db64abf56"}
         async with session.get(url=url, params=params) as response:
             weather_json = await response.json()
             weather_string += f'{city: <15}: {weather_json["weather"][0]["main"]}\n'
+            return weather_string
 
 
-
-async def show_time(window, refresh_rate=.01):
-    global flag
-    flag = None
+async def show_clock(window, refresh_rate=.01):
     while True:
-        if flag == "show time":
+        if window['toggle_show_time'].metadata:
             print("[ show-time-loop ]")
-            window["output"].update(datetime.now().strftime("%Y %b %d, %X.%f"))
+            window["clock_output"].update(datetime.now().strftime("%Y %b %d, %X.%f"))
             window.refresh()
         await asyncio.sleep(refresh_rate)
 
 
-async def read_events(window, refresh_rate=.1):
-    global event
-    while True:
-        event = window.read(timeout=10)[0]
-        print("[ read-event-loop ]")
-        await asyncio.sleep(refresh_rate)
+async def check_events(window,
+                       toggle_button_on,
+                       toggle_button_off,
+                       cities,
+                       refresh_rate=.1):
 
-
-async def check_events(window, refresh_rate=.1):
-    global flag
-    global event
-    global weather_tasks, cities, weather_string
-    url = 'http://api.openweathermap.org/data/2.5/weather'
+    timeout = 10  # milliseconds
+    url = "http://api.openweathermap.org/data/2.5/weather"
 
     while True:
 
-        if event == sg.WIN_CLOSED or event == "Exit":
-            flag = "exit"
-            print("1st if == Quit")
-            window.close()
-            sys.exit()
+        match event := window.read(timeout)[0]:
 
-        if event == "turn_ON_time_button_pressed":
-            flag = "show time"
-            print("2nd if == turn_ON_time_button_pressed\n")
+            case "Exit": window.close()
 
-        if event == "turn_OFF_time_button_pressed":
-            flag = "dont show time"
-            print("3d if == turn_OFF_time_button_pressed\n")
+            case sg.WIN_CLOSED: sys.exit()
 
-        if event == "async_retrieve_weather_button_pressed":
-            weather_string = ""
-            print("4d if == async_retrieve_weather_button_pressed")
-            for city in cities:
-                await async_get_weather(window, url, city)
+            case "toggle_show_time":
+                window['toggle_show_time'].metadata = not window['toggle_show_time'].metadata
+                window['toggle_show_time'].update(image_data=toggle_button_on if window['toggle_show_time'].metadata else toggle_button_off)
+
+            case "async_retrieve_weather_button_pressed":
+                responses = asyncio.gather(
+                    *[async_get_weather(window, url, city) for city in cities]
+                    )
+
+            case "retrieve_weather_button_pressed":
+                weather_string = ""
+                for city in cities:
+                    weather_string += get_weather(window, url, city)
+                    window["weather_output"].update(weather_string)
+                    window.refresh()
+
+            case "clear_output":
+                window["async_weather_output"].update("")
+                window["weather_output"].update("")
+                window["clock_output"].update("")
+                window.refresh()
+
+        # printig async weather to output
+        try:
+            if responses.result():
+                weather_string = "".join(responses.result())
                 window["async_weather_output"].update(weather_string)
-                window.refresh()
+                responses = []
+        except (asyncio.exceptions.InvalidStateError, NameError, AttributeError):
+            pass
 
-        if event == "sync_retrieve_weather_button_pressed":
-            weather_string = ""
-            print("5d if == sync_retrieve_weather_button_pressed")
-            for city in cities:
-                get_weather(window, url, city)
-                window["sync_weather_output"].update(weather_string)
-                window.refresh()
-
-        if event == "clear_output":
-            window["async_weather_output"].update("")
-            window["sync_weather_output"].update("")
-            window.refresh()
 
         print("[ check-events-loop ]")
         await asyncio.sleep(refresh_rate)
 
 
 async def main():
-    global event
-    global cities, weather_string
+    with open("toggle_button_on.txt") as toggle_button_on, \
+         open("toggle_button_off.txt") as toggle_button_off:
+        toggle_button_on = toggle_button_on.read()
+        toggle_button_off = toggle_button_off.read()
 
-    flag = None
-    window = make_window()
-    url = 'http://api.openweathermap.org/data/2.5/weather'
-    cities = ['Moscow', 'St. Petersburg', 'Rostov-on-Don', 'Kaliningrad', 'Vladivostok',
-              'Minsk', 'Beijing', 'Delhi', 'Istanbul', 'Tokyo', 'London', 'New York']
+        window = make_window(toggle_button_off)
+        url = "http://api.openweathermap.org/data/2.5/weather"
+        cities = ['Moscow',
+                  'St. Petersburg',
+                  'Rostov-on-Don',
+                  'Kaliningrad',
+                  'Vladivostok',
+                  'Minsk',
+                  'Beijing',
+                  'Delhi',
+                  'Istanbul',
+                  'Tokyo',
+                  'London',
+                  'New York',]
 
-    task_read_events = asyncio.create_task(read_events(window))
-    task_check_events = asyncio.create_task(check_events(window))
-    task_show_time = asyncio.create_task(show_time(window))
+        task_check_events = asyncio.create_task(check_events(window, toggle_button_on, toggle_button_off, cities))
+        task_show_clock = asyncio.create_task(show_clock(window))
 
-    await task_read_events
-    await task_check_events
-    await task_show_time
+        await task_check_events
+        await task_show_clock
 
 
 if __name__ == "__main__":
