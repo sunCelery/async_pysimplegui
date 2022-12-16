@@ -39,9 +39,14 @@ def make_window(toggle_button_off):
             size=(30, 12),
             font=("Courier New", 10),)],
 
+        [sg.Button("retrieve_weather_pysimplegui_thread",
+            key="retrieve_weather_pysimplegui_thread",
+            size=(30, 1),)],
+
         [sg.Button("clear layout",
             key="clear_output",
             size=(20, 1),)],
+
         ]
 
     window = sg.Window('Async program', layout, finalize=True)
@@ -55,6 +60,17 @@ def get_weather(window, url, city) -> str:
         response = session.get(url, params=params)
         weather_json = response.json()
         weather_string += f'{city: <15}: {weather_json["weather"][0]["main"]}\n'
+        return weather_string
+
+
+def retrieve_weather_pysimplegui_thread(window, url, cities) -> str:
+    weather_string = ""
+    with requests.Session() as session:
+        for city in cities:
+            params = {'q': city, 'APPID': '2a4ff86f9aaa70041ec8e82db64abf56'}
+            response = session.get(url, params=params)
+            weather_json = response.json()
+            weather_string += f'{city: <15}: {weather_json["weather"][0]["main"]}\n'
         return weather_string
 
 
@@ -87,8 +103,9 @@ async def check_events(window,
     url = "http://api.openweathermap.org/data/2.5/weather"
 
     while True:
+        event, values = window.read(timeout)
 
-        match event := window.read(timeout)[0]:
+        match event:
 
             case "Exit": window.close()
 
@@ -109,6 +126,20 @@ async def check_events(window,
                     weather_string += get_weather(window, url, city)
                     window["weather_output"].update(weather_string)
                     window.refresh()
+
+            case "retrieve_weather_pysimplegui_thread":
+                window.perform_long_operation(
+                    lambda: retrieve_weather_pysimplegui_thread(window, url, cities),
+                    "thread_request_fulfilled")
+
+            case "thread_request_fulfilled":
+                try:
+                    # window['-OUT-'].update(f'indirect return value = {values[event]}')
+                    window["weather_output"].update(values[event])
+                    # window["weather_output"].update(weather_string)
+                    window.refresh()
+                except UnboundLocalError:
+                    pass
 
             case "clear_output":
                 window["async_weather_output"].update("")
