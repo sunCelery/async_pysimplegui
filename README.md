@@ -10,9 +10,18 @@
 - [To Do](#to-do)
 
 ## Description ##
-This program allows You to do asynchronous requests to the server (which do not block UI),
-and also demonstrates that the requests are asynchronous for sure, by comparing with regular synchronous requests.
-(which block UI (clock updating) and is fulfilling much slower))
+
+- **reatriev_weather** button - do common synchronous requests to the weather server
+
+- **async_retrieve_weather** button - fulfill asynchronous requests to the server
+(which do not block UI and executes much faster)
+
+- **retrieve_weather_pysimplegui_thread** button - make the requests in their own threaded,
+as pysimplegui docs proposes (these requests are fast and do not block UI either
+like async requests, but at demonstration You can see a delay caused
+probably by threading creation)
+
+- **Clock** - demonsrates either or not UI blocking by buttons requests
 
 ## Install ##
 **To install the app run one of these blocks in linux terminal**
@@ -44,9 +53,8 @@ poetry run python main.py
 python main.py
 ```
 
-
 ## To Do ##
 
-- [done] make aihttp request which not block UI
+- [done] make aiohttp request which not block UI
 - [done] clean code style, delete global variables
-- implement variant of function which uses thread (window.perform_long_operation) method
+- [done] implement variant of function which uses thread (window.perform_long_operation) method
