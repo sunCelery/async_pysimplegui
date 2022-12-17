@@ -9,40 +9,43 @@ from datetime import datetime
 def make_window(toggle_button_off):
     layout = [
         [sg.Text('Show Clock',),
-            sg.Push(),
-            sg.Button(
-                image_data=toggle_button_off,
-                key='toggle_show_time',
-                button_color=(sg.theme_background_color(),
-                            sg.theme_background_color()),
-                border_width=0,
-                metadata=False),],
+         sg.Push(),
+         sg.Button(
+             image_data=toggle_button_off,
+             key='toggle_show_time',
+             button_color=(sg.theme_background_color(),
+                           sg.theme_background_color()),
+             border_width=0,
+             metadata=False), ],
 
-        [sg.Text("",
+        [sg.Text(
             key="clock_output",
             size=(30, 1),)],
 
-        [sg.Button("retrieve_weather",
+        [sg.Button(
+            "retrieve_weather",
             key="retrieve_weather",
             size=(30, 1),)],
 
-        [sg.Button("async_retrieve_weather",
+        [sg.Button(
+            "async_retrieve_weather",
             key="async_retrieve_weather",
             size=(30, 1),)],
 
-        [sg.Button("retrieve_weather_pysimplegui_thread",
+        [sg.Button(
+            "retrieve_weather_pysimplegui_thread",
             key="retrieve_weather_pysimplegui_thread",
             size=(30, 1),)],
 
-        [sg.Text("",
+        [sg.Text(
             key="weather_output",
             size=(30, 12),
             font=("Courier New", 10),)],
 
-        [sg.Button("clear layout",
+        [sg.Button(
+            "clear layout",
             key="clear_output",
             size=(20, 1),)],
-
         ]
 
     window = sg.Window('Async program', layout, finalize=True)
@@ -52,40 +55,53 @@ def make_window(toggle_button_off):
 async def show_clock(window, refresh_rate=.01):
     while True:
         if window['toggle_show_time'].metadata:
-            print("[ show-time-loop ]")
+            # print("[ show-time-loop ]")
             window["clock_output"].update(datetime.now().strftime("%Y %b %d, %X.%f"))
             window.refresh()
         await asyncio.sleep(refresh_rate)
 
 
-def retrieve_weather(window, url, city, APPID) -> str:
+def retrieve_weather(url, city, APPID) -> str:
     weather_string = ""
     with requests.Session() as session:
         params = {"q": city, "APPID": APPID}
         response = session.get(url=url, params=params)
         weather_json = response.json()
-        weather_string += f'{city: <15}: {weather_json["weather"][0]["main"]}\n'
+
+        weather = weather_json["weather"][0]["main"]
+        temp = weather_json["main"]["temp"]
+        weather_string += f'{city: <15}: {int(temp-273.15): 3}°C {weather}\n'
+
         return weather_string
 
 
-async def async_retrieve_weather(window, url, city, APPID) -> str:
+async def async_retrieve_weather(url, city, APPID) -> str:
     weather_string = ""
     params = {"q": city, "APPID": APPID}
     async with aiohttp.ClientSession() as session:
         async with session.get(url=url, params=params) as response:
             weather_json = await response.json()
-            weather_string += f'{city: <15}: {weather_json["weather"][0]["main"]}\n'
+
+            weather = weather_json["weather"][0]["main"]
+            temp = weather_json["main"]["temp"]
+            weather_string += f'{city: <15}: {int(temp - 273.15): 3}°C {weather}\n'
+
             return weather_string
 
 
-def retrieve_weather_pysimplegui_thread(window, url, cities, APPID) -> str:
+def retrieve_weather_pysimplegui_thread(url, cities, APPID) -> str:
+    """You need no any async function in your program if You use this method"""
     weather_string = ""
     with requests.Session() as session:
         for city in cities:
             params = {"q": city, "APPID": APPID}
             response = session.get(url, params=params)
             weather_json = response.json()
-            weather_string += f'{city: <15}: {weather_json["weather"][0]["main"]}\n'
+
+            weather = weather_json["weather"][0]["main"]
+            temp = weather_json["main"]["temp"]
+            weather_string += f'{city: <15}: {int(temp - 273.15): 3}°C {weather}\n'
+
         return weather_string
 
 
@@ -95,11 +111,12 @@ async def check_events(window,
                        cities,
                        APPID,
                        url,
-                       refresh_rate=.1):
+                       refresh_rate=.01):
 
     timeout = 10  # milliseconds
 
     while True:
+
         event, values = window.read(timeout)
 
         match event:
@@ -110,23 +127,24 @@ async def check_events(window,
 
             case "toggle_show_time":
                 window['toggle_show_time'].metadata = not window['toggle_show_time'].metadata
-                window['toggle_show_time'].update(image_data=toggle_button_on if window['toggle_show_time'].metadata else toggle_button_off)
+                toggle_image = toggle_button_on if window['toggle_show_time'].metadata else toggle_button_off
+                window['toggle_show_time'].update(image_data=toggle_image)
 
             case "retrieve_weather":
                 weather_string = ""
                 for city in cities:
-                    weather_string += retrieve_weather(window, url, city, APPID)
+                    weather_string += retrieve_weather(url, city, APPID)
                     window["weather_output"].update(weather_string)
                     window.refresh()
 
             case "async_retrieve_weather":
                 responses = asyncio.gather(
-                    *[async_retrieve_weather(window, url, city, APPID) for city in cities]
+                    *[async_retrieve_weather(url, city, APPID) for city in cities]
                     )
 
             case "retrieve_weather_pysimplegui_thread":
                 window.perform_long_operation(
-                    lambda: retrieve_weather_pysimplegui_thread(window, url, cities, APPID),
+                    lambda: retrieve_weather_pysimplegui_thread(url, cities, APPID),
                     "thread_request_fulfilled")
 
             case "thread_request_fulfilled":
@@ -137,7 +155,6 @@ async def check_events(window,
                     pass
 
             case "clear_output":
-                window["weather_output"].update("")
                 window["weather_output"].update("")
                 window["clock_output"].update("")
                 window.refresh()
@@ -151,8 +168,7 @@ async def check_events(window,
         except (asyncio.exceptions.InvalidStateError, NameError, AttributeError):
             pass
 
-
-        print("[ check-events-loop ]")
+        # print("[ check-events-loop ]")
         await asyncio.sleep(refresh_rate)
 
 
@@ -167,28 +183,32 @@ async def main():
 
         window = make_window(toggle_button_off)
         cities = ['Moscow',
-                  'St. Petersburg',
-                  'Rostov-on-Don',
-                  'Kaliningrad',
+                  'Yerevan',
+                  'Tbilisi',
+                  'Nicosia',
+                  'Podgorica',
                   'Vladivostok',
-                  'Minsk',
                   'Beijing',
                   'Delhi',
                   'Istanbul',
                   'Tokyo',
                   'London',
-                  'New York',]
+                  'New York', ]
 
-        task_check_events = asyncio.create_task(check_events(window,
-                                                             toggle_button_on,
-                                                             toggle_button_off,
-                                                             cities,
-                                                             APPID,
-                                                             url))
-        task_show_clock = asyncio.create_task(show_clock(window))
+        tasks = [
+            asyncio.create_task(
+                check_events(
+                    window,
+                    toggle_button_on, toggle_button_off,
+                    cities, APPID, url)),
 
-        await task_check_events
-        await task_show_clock
+            asyncio.create_task(
+                show_clock(
+                    window))
+        ]
+
+        for task in tasks:
+            await task
 
 
 if __name__ == "__main__":
