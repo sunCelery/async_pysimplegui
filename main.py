@@ -41,21 +41,26 @@ class WeatherApp:
             [sg.Button(
                 "retrieve_weather",
                 key="retrieve_weather",
-                size=(30, 1), )],
+                size=(48, 1), )],
 
             [sg.Button(
-                "async_retrieve_weather",
-                key="async_retrieve_weather",
-                size=(30, 1),)],
+                "retrieve_weather_async",
+                key="retrieve_weather_async",
+                size=(48, 1),)],
 
             [sg.Button(
-                "retrieve_weather_pysimplegui_thread",
-                key="retrieve_weather_pysimplegui_thread",
-                size=(30, 1),)],
+                "retrieve_weather_thread",
+                key="retrieve_weather_thread",
+                size=(48, 1),)],
+
+            [sg.Text(
+                key="weather_header",
+                size=(45, 1),
+                font=("Courier New", 10, "bold"), )],
 
             [sg.Text(
                 key="weather_output",
-                size=(30, 12),
+                size=(45, 12),
                 font=("Courier New", 10),)],
 
             [sg.Button(
@@ -77,46 +82,61 @@ class WeatherApp:
     def retrieve_weather(self, city) -> str:
         weather_string = ""
         with requests.Session() as session:
-            params = {"q": city, "APPID": self.APPID}
+            params = {"q": city, "units": "metric", "APPID": self.APPID}
             response = session.get(url=self.API_URL, params=params)
             weather_json = response.json()
 
-            weather = weather_json["weather"][0]["main"]
-            temp = weather_json["main"]["temp"]
-            weather_string += f"{city: <15}: {int(temp-273.15): 3}°C {weather}\n"
+            weather = weather_json["list"][0]["weather"][0]["main"]
+            temperature = round(weather_json["list"][0]["main"]["temp"])
+
+            weather_tom = weather_json["list"][8]["weather"][0]["main"]
+            temperature_tom = round(weather_json["list"][8]["main"]["temp"])
+
+            weather_string += f'{city[:15]:<15}: {temperature:>3}°C {weather:<6} -> ' \
+                              f'{temperature_tom:>3}°C {weather_tom:<6}\n'
 
             return weather_string
 
-    async def async_retrieve_weather(self, city) -> str:
+    async def retrieve_weather_async(self, city) -> str:
         weather_string = ""
-        params = {"q": city, "APPID": self.APPID}
+        params = {"q": city, "units": "metric", "APPID": self.APPID}
         async with aiohttp.ClientSession() as session:
             async with session.get(url=self.API_URL, params=params) as response:
                 weather_json = await response.json()
 
-                weather = weather_json["weather"][0]["main"]
-                temp = weather_json["main"]["temp"]
-                weather_string += f'{city: <15}: {int(temp - 273.15): 3}°C {weather}\n'
+                weather = weather_json["list"][0]["weather"][0]["main"]
+                temperature = round(weather_json["list"][0]["main"]["temp"])
+
+                weather_tom = weather_json["list"][8]["weather"][0]["main"]
+                temperature_tom = round(weather_json["list"][8]["main"]["temp"])
+
+                weather_string += f'{city[:15]:<15}: {temperature:>3}°C {weather:<6} -> ' \
+                                  f'{temperature_tom:>3}°C {weather_tom}\n'
 
                 return weather_string
 
-    def retrieve_weather_pysimplegui_thread(self) -> str:
+    def retrieve_weather_thread(self) -> str:
         """You need no any async function in your program if You use this method"""
         weather_string = ""
         with requests.Session() as session:
             for city in self.cities:
-                params = {"q": city, "APPID": self.APPID}
+                params = {"q": city, "units": "metric", "APPID": self.APPID}
                 response = session.get(self.API_URL, params=params)
                 weather_json = response.json()
 
-                weather = weather_json["weather"][0]["main"]
-                temp = weather_json["main"]["temp"]
-                weather_string += f'{city: <15}: {int(temp - 273.15): 3}°C {weather}\n'
+                weather = weather_json["list"][0]["weather"][0]["main"]
+                temperature = round(weather_json["list"][0]["main"]["temp"])
+
+                weather_tom = weather_json["list"][8]["weather"][0]["main"]
+                temperature_tom = round(weather_json["list"][8]["main"]["temp"])
+
+                weather_string += f'{city[:15]:<15}: {temperature:>3}°C {weather:<6} -> ' \
+                                  f'{temperature_tom:>3}°C {weather_tom}\n'
 
             return weather_string
 
     async def check_events(self, refresh_rate=.01):
-        timeout = int(1000 * refresh_rate)  # milliseconds
+        timeout = 1  # milliseconds, duration of blocking window.read() method call
         responses = []
 
         while True:
@@ -125,12 +145,15 @@ class WeatherApp:
 
             match event:
 
-                case "Exit": window.close()
+                case "Exit":
+                    window.close()
 
-                case sg.WIN_CLOSED: sys.exit()
+                case sg.WIN_CLOSED:
+                    sys.exit()
 
                 case "toggle_show_time":
-                    self.window['toggle_show_time'].metadata = not self.window['toggle_show_time'].metadata
+                    self.window['toggle_show_time'].metadata = not(
+                        self.window['toggle_show_time'].metadata)
                     if self.window['toggle_show_time'].metadata:
                         toggle_image = self.toggle_button_on
                     else:
@@ -138,41 +161,49 @@ class WeatherApp:
                     self.window['toggle_show_time'].update(image_data=toggle_image)
 
                 case "retrieve_weather":
+                    self.window["weather_header"].update(
+                        f"{'City':^15}: {'Now':^12} -> {'24H later:':^12}")
                     weather_string = ""
                     for city in self.cities:
                         weather_string += self.retrieve_weather(city)
                         self.window["weather_output"].update(weather_string)
                         self.window.refresh()
 
-                case "async_retrieve_weather":
+                case "retrieve_weather_async":
                     responses = asyncio.gather(
-                        *[self.async_retrieve_weather(city) for city in self.cities]
+                        *[self.retrieve_weather_async(city) for city in self.cities]
                         )
 
-                case "retrieve_weather_pysimplegui_thread":
+                case "retrieve_weather_thread":
                     self.window.perform_long_operation(
-                        lambda: self.retrieve_weather_pysimplegui_thread(),
-                        "thread_request_fulfilled")
+                        lambda: self.retrieve_weather_thread(),
+                        "retrieve_weather_thread_fulfilled")
 
-                case "thread_request_fulfilled":
+                case "retrieve_weather_thread_fulfilled":
                     try:
+                        self.window["weather_header"].update(
+                            f"{'City':^15}: {'Now':^12} -> {'24H later:':^12}")
                         self.window["weather_output"].update(values[event])
                         self.window.refresh()
                     except UnboundLocalError:
                         pass
 
                 case "clear_output":
-                    self.window["weather_output"].update("")
                     self.window["clock_output"].update("")
+                    self.window["weather_output"].update("")
+                    self.window["weather_header"].update("")
                     self.window.refresh()
 
-            # printig async_retrieve_weather to weather_output here
+            # printing retrieve_weather_async
             try:
                 if responses.result():
+                    self.window["weather_header"].update(
+                        f"{'City':^15}: {'Now':^12} -> {'24H later:':^12}")
                     weather_string = "".join(responses.result())
                     self.window["weather_output"].update(weather_string)
                     responses = []
-            except (asyncio.exceptions.InvalidStateError, NameError, AttributeError):
+            except (asyncio.exceptions.InvalidStateError,
+                    NameError, AttributeError):
                 pass
 
             await asyncio.sleep(refresh_rate)
@@ -186,8 +217,8 @@ class WeatherApp:
 
 
 if __name__ == "__main__":
-    API_URL = "http://api.openweathermap.org/data/2.5/weather"
-    cities = ['Moscow', 'Yerevan', 'Tbilisi', 'Nicosia', 'Podgorica', 'Vladivostok',
+    API_URL = "http://api.openweathermap.org/data/2.5/forecast"
+    cities = ['Moscow', 'Yerevan', 'Tbilisi', 'Nicosia', 'Podgorica', 'Petropavlovsk-Kamchatsky',
               'Beijing', 'Delhi', 'Istanbul', 'Tokyo', 'London', 'New York', ]
 
     with open("APPID.txt", "rt") as API_KEY:
